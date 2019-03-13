@@ -2,7 +2,7 @@
 Fast version of [WAVE.js](https://github.com/TakeshiOkamoto/WAVE.js). ( WAVE.jsの高速版。)
   
 Use WebAssembly of HTML5 to write faster than 10x. improved reading speed by 30%.  
-( HTML5のWebAssemblyを使用して書き込み速度を10倍以上に高速。読み込み速度は改良して30%向上。)  
+( HTML5のWebAssemblyを使用して書き込み速度を10倍以上に高速化。読み込み速度は改良して30%向上。)  
   
 Succeeded in speeding is C language in WebAssembly. but, IE11 is not supported,  because it is the latest technology.  
 ( WebAssemblyでC言語を使用して高速化に成功しています。但し、最新技術なのでIE11は未対応です。 )  
