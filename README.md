@@ -8,7 +8,11 @@ Succeeded in speeding is C language in WebAssembly. but, IE11 is not supported, 
 ( WebAssemblyでC言語を使用して高速化に成功しています。但し、最新技術なのでIE11は未対応です。 )  
   
 It's as fast as OS native apps.  
-( OSのネイティブアプリのように高速です。 )
+( OSのネイティブアプリのように高速です。 )  
+  
+## Caution ( 注意 )
+It can not be run locally. Please upload to the server.  
+( ローカルでは実行できません。サーバーにアップして下さい。 )  
   
 ## In My Blog  
 To use WAVE.wasm.js with the "In My Blog" example from [WAVE.js](https://github.com/TakeshiOkamoto/WAVE.js), convert the code as follows.   
