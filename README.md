@@ -1,5 +1,5 @@
 # WAVE.wasm.js
-Fast version of [WAVE.js](https://github.com/TakeshiOkamoto/WAVE.js). WAVE.jsの高速版。
+Fast version of [WAVE.js](https://github.com/TakeshiOkamoto/WAVE.js). ( WAVE.jsの高速版。)
   
 Use WebAssembly of HTML5 to write faster than 10x. improved reading speed by 30%.  
 ( HTML5のWebAssemblyを使用して書き込み速度を10倍以上に高速。読み込み速度は改良して30%向上。)  
