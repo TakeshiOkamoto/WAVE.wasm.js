@@ -1,14 +1,14 @@
 /***********************************************/
 /*                                             */
 /*   WAVE.wasm.js                              */
-/*                                      v1.00  */
+/*                                      v1.01  */
 /*                                             */
 /*   Copyright 2019 Takeshi Okamoto (Japan)    */
 /*                                             */
 /*   Released under the MIT license            */
 /*   https://github.com/TakeshiOkamoto         */
 /*                                             */
-/*                            Date: 2019-03-13 */
+/*                            Date: 2019-03-15 */
 /***********************************************/
 /*
 
@@ -170,7 +170,7 @@ TReadStream.prototype = {
 function TFileStream(BufferSize) {
 
   if (BufferSize == undefined)
-    this.MemorySize = 50000000; // 50M
+    this.MemorySize = 5000000; // 5M
   else
     this.MemorySize = parseInt(BufferSize, 10);
 
@@ -384,7 +384,6 @@ function TWaveFormat(instance, PByteArray) {
   
   // WebAssembly
   this.instance = instance;
-  this.stepSize = 4096;    
    
   // ファイルの解析
   try{
@@ -407,169 +406,121 @@ TWaveFormat.prototype = {
         (this.Analyst.WaveFomat.wFormatTag == 3 && this.Analyst.WaveFomat.wBitsPerSample == 32))){
       throw 'It is an unsupported format.'; 
     }
-    
+   
     // 1チャンネルのサイズ
     var size = (this.Analyst.WaveFomat.nSamplesPerSec * (this.Analyst.WaveFomat.wBitsPerSample * 1) * 
                 this.Analyst.time / 1000) / this.Analyst.WaveFomat.wBitsPerSample;
-    var index, l=0, r=0,data = {};    
+    
+    // 出力用            
+    var data = {};            
     data.L = new Int32Array(size); 
-    data.R = new Int32Array(size);
+    if(this.Analyst.WaveFomat.nChannels == 1){
+      data.R = new Int32Array(0);
+    }else{
+      data.R = new Int32Array(size);
+    } 
     
-    switch (this.Analyst.WaveFomat.wBitsPerSample){
+    // ----------------
+    //  波形データ
+    // ----------------            
+    
+    // [IEEE Float] 32bit 
+    if(this.Analyst.WaveFomat.wBitsPerSample == 32 && this.Analyst.WaveFomat.wFormatTag == 3){
+      var l=0,r=0;
+      var val, dataView = new DataView(new ArrayBuffer(4)); 
       
-      // 8bit 0 ～ 255、無音は128
-      case 8 : 
-            // モノラル
-            if(this.Analyst.WaveFomat.nChannels == 1){
-              for(var i=0;i<this.Analyst.raw.length;i++){
-                data.L[l++] = WAV_SetInt8(this.Analyst.raw[i]) ;                
-              }              
-            // ステレオ  
+      if(this.Analyst.WaveFomat.nChannels == 1){                                           
+        for(var i=0;i<this.Analyst.raw.length/4;i++){                  
+          index = i * 4; 
+          dataView.setUint32(0,
+                             this.Analyst.raw[index]          |
+                            (this.Analyst.raw[index+1] << 8 ) |
+                            (this.Analyst.raw[index+2] << 16) |
+                            (this.Analyst.raw[index+3] << 24), false);
+                            
+          val = dataView.getFloat32(0);
+          if(val >= 0){
+            val = val * 2147483647;                      
+          }else{
+            val = val * 2147483648;
+          }
+          data.L[l++] = WAV_SetInt32(val);
+        }
+      }else{           
+        for(var i=0;i<this.Analyst.raw.length/4;i++){
+          index = i * 4; 
+          if(i % 2 == 0){  
+            dataView.setUint32(0,
+                               this.Analyst.raw[index]          |
+                              (this.Analyst.raw[index+1] << 8 ) |
+                              (this.Analyst.raw[index+2] << 16) |
+                              (this.Analyst.raw[index+3] << 24), false);
+                              
+            val = dataView.getFloat32(0);
+            if(val >= 0){
+              val = val * 2147483647;                      
             }else{
-              for(var i=0;i<this.Analyst.raw.length;i++){
-                if(i % 2 == 0){           
-                  data.L[l++] = WAV_SetInt8(this.Analyst.raw[i]) ;
-                }else{
-                  data.R[r++] = WAV_SetInt8(this.Analyst.raw[i]) ;
-                }
-              }                   
+              val = val * 2147483648;
             }
-            break;
-
-      // 16bit -32768 ～ +32767、無音は0
-      case 16 :  
-            if(this.Analyst.WaveFomat.nChannels == 1){
-              for(var i=0;i<this.Analyst.raw.length/2;i++){   
-                index = i * 2;   
-                data.L[l++] = WAV_SetInt16((this.Analyst.raw[index+1] << 8) | this.Analyst.raw[index]) ;
-              }              
+            data.L[l++] = WAV_SetInt32(val);
+          }else{
+            dataView.setUint32(0,
+                               this.Analyst.raw[index]          |
+                              (this.Analyst.raw[index+1] << 8 ) |
+                              (this.Analyst.raw[index+2] << 16) |
+                              (this.Analyst.raw[index+3] << 24), false);
+                              
+            val = dataView.getFloat32(0);
+            if(val >= 0){
+              val = val * 2147483647;                      
             }else{
-              for(var i=0;i<this.Analyst.raw.length/2;i++){
-                index = i * 2; 
-                if(i % 2 == 0){           
-                  data.L[l++] = WAV_SetInt16((this.Analyst.raw[index+1] << 8) | this.Analyst.raw[index]) ;
-                }else{
-                  data.R[r++] = WAV_SetInt16((this.Analyst.raw[index+1] << 8) | this.Analyst.raw[index]) ;
-                }
-              }         
+              val = val * 2147483648;
             }
-            break;
-
-      // 24bit -8388608 ～ 8388607、無音は0
-      case 24 : 
-            if(this.Analyst.WaveFomat.nChannels == 1){
-              for(var i=0;i<this.Analyst.raw.length/3;i++){   
-                index = i * 3;         
-                data.L[l++] = WAV_SetInt24( this.Analyst.raw[index]          |
-                                           (this.Analyst.raw[index+1] << 8 ) |
-                                           (this.Analyst.raw[index+2] << 16)) ;                            
-              }                     
-            }else{
-              for(var i=0;i<this.Analyst.raw.length/3;i++){
-                index = i * 3; 
-                if(i % 2 == 0){           
-                  data.L[l++] = WAV_SetInt24( this.Analyst.raw[index]          |
-                                             (this.Analyst.raw[index+1] << 8 ) |
-                                             (this.Analyst.raw[index+2] << 16)) ;  
-                }else{
-                  data.R[r++] = WAV_SetInt24( this.Analyst.raw[index]          |
-                                             (this.Analyst.raw[index+1] << 8 ) |
-                                             (this.Analyst.raw[index+2] << 16)) ; 
-                }
-              }             
-            }
-            break;            
-            
+            data.R[r++] = WAV_SetInt32(val);
+          }                  
+        }                                                
+      }
       
-      case 32 :
-            // [PCM] 32bit -2147483648 ～ 2147483647、無音は0
-            if (this.Analyst.WaveFomat.wFormatTag == 1){    
-              if(this.Analyst.WaveFomat.nChannels == 1){  
-                for(var i=0;i<this.Analyst.raw.length/4;i++){
-                  index = i * 4;       
-                  data.L[l++] = WAV_SetInt32( this.Analyst.raw[index]          |
-                                             (this.Analyst.raw[index+1] << 8 ) |
-                                             (this.Analyst.raw[index+2] << 16) |
-                                             (this.Analyst.raw[index+3] << 24)); 
-                }            
-              }else{
-                for(var i=0;i<this.Analyst.raw.length/4;i++){
-                  index = i * 4; 
-                  if(i % 2 == 0){           
-                    data.L[l++] = WAV_SetInt32( this.Analyst.raw[index]          |
-                                               (this.Analyst.raw[index+1] << 8 ) |
-                                               (this.Analyst.raw[index+2] << 16) |
-                                               (this.Analyst.raw[index+3] << 24)); 
-                  }else{
-                    data.R[r++] = WAV_SetInt32( this.Analyst.raw[index]          |
-                                               (this.Analyst.raw[index+1] << 8 ) |
-                                               (this.Analyst.raw[index+2] << 16) |
-                                               (this.Analyst.raw[index+3] << 24)); 
-                  }
-                }            
-              }
-              
-            // [IEEE Float] 32bit -1 ～ 1、無音は0   
-            }else{              
-              var val, dataView = new DataView(new ArrayBuffer(4)); 
-              
-              if(this.Analyst.WaveFomat.nChannels == 1){                                           
-                for(var i=0;i<this.Analyst.raw.length/4;i++){                  
-                  index = i * 4; 
-                  dataView.setUint32(0,
-                                     this.Analyst.raw[index]          |
-                                    (this.Analyst.raw[index+1] << 8 ) |
-                                    (this.Analyst.raw[index+2] << 16) |
-                                    (this.Analyst.raw[index+3] << 24), false);
-                                    
-                  val = dataView.getFloat32(0);
-                  if(val >= 0){
-                    val = val * 2147483647;                      
-                  }else{
-                    val = val * 2147483648;
-                  }
-                  data.L[l++] = WAV_SetInt32(val);
-                }
-              }else{           
-                for(var i=0;i<this.Analyst.raw.length/4;i++){
-                  index = i * 4; 
-                  if(i % 2 == 0){  
-                    dataView.setUint32(0,
-                                       this.Analyst.raw[index]          |
-                                      (this.Analyst.raw[index+1] << 8 ) |
-                                      (this.Analyst.raw[index+2] << 16) |
-                                      (this.Analyst.raw[index+3] << 24), false);
-                                      
-                    val = dataView.getFloat32(0);
-                    if(val >= 0){
-                      val = val * 2147483647;                      
-                    }else{
-                      val = val * 2147483648;
-                    }
-                    data.L[l++] = WAV_SetInt32(val);
-                  }else{
-                    dataView.setUint32(0,
-                                       this.Analyst.raw[index]          |
-                                      (this.Analyst.raw[index+1] << 8 ) |
-                                      (this.Analyst.raw[index+2] << 16) |
-                                      (this.Analyst.raw[index+3] << 24), false);
-                                      
-                    val = dataView.getFloat32(0);
-                    if(val >= 0){
-                      val = val * 2147483647;                      
-                    }else{
-                      val = val * 2147483648;
-                    }
-                    data.R[r++] = WAV_SetInt32(val);
-                  }                  
-                }                                                
-              }
-            }
-            break;  
-            
-      default : throw 'It is an unsupported format.';                
+    // [PCM] 8/16/24/32bit  
+    }else{
+      
+      if(this.Analyst.WaveFomat.wBitsPerSample == 4){
+         throw 'It is an unsupported format.'; 
+      }
+      
+      // メモリの準備    
+      var memory = this.instance.exports.memory; 
+      
+      var size_L = data.L.length * 4; // dst
+      var size_R = data.R.length * 4; // dst
+      var size_S = ((data.L.length + data.R.length) * (this.Analyst.WaveFomat.wBitsPerSample/ 8)); // src
+      
+      // 現在のメモリサイズ
+      var now_size = memory.buffer.byteLength;
+      
+      // 必要なメモリサイズ
+      var need_size = size_L + size_R + size_S;  
+      
+      // malloc
+      if(need_size > now_size){
+        var now_count = Math.floor(now_size / 65536);        
+        this.instance.exports.memory.grow(Math.floor(need_size / 65536) + 1 - now_count);
+      } 
+      
+      // setting 
+      var L = new Int32Array(memory.buffer, 0, data.L.length);
+      var R = new Int32Array(memory.buffer, size_L, data.R.length);
+      var src = new Uint8Array(memory.buffer, size_L + size_R, size_S);
+      src.set(this.Analyst.raw);      
+      
+      // WebAssembly run
+      this.instance.exports.read(memory.buffer,size_L, size_R, this.Analyst.raw.length, 
+                                 this.Analyst.WaveFomat.wBitsPerSample, this.Analyst.WaveFomat.nChannels);
+      
+      // memcpy                           
+      data.L.set(L);
+      data.R.set(R);      
     }
-    
     return data;
   },
   
@@ -631,65 +582,45 @@ TWaveFormat.prototype = {
       
       // 波形データのバイト数    
       F.WriteDWord((data.L.length + data.R.length) * (bits/ 8));
-        
-      // --------------
+
+      // ----------------
       //  波形データ
-      // --------------        
-      var step = this.stepSize;        
+      // ----------------
       
-      // バッファ
-      var heap = this.instance.exports.memory.buffer;
-              
-      var quotient = Math.floor(data.L.length /step); // 商
-      var mod = data.L.length % step; // 余り
+      // メモリの準備        
+      var memory = this.instance.exports.memory; 
+      
+      var size_L = data.L.length * 4; // src
+      var size_R = data.R.length * 4; // src
+      var size_D = ((data.L.length + data.R.length) * (bits/ 8)) + 44; //dst
+      
+      // 現在のメモリサイズ
+      var now_size = memory.buffer.byteLength;
+      
+      // 必要なメモリサイズ
+      var need_size = size_L + size_R + size_D;  
+      
+      // malloc
+      if(need_size > now_size){
+        var now_count = Math.floor(now_size / 65536);        
+        this.instance.exports.memory.grow(Math.floor(need_size / 65536) + 1 - now_count);
+      } 
        
-      // アドレス
-      var offset_L = this.instance.exports.getAddress_L();
-      var offset_R = this.instance.exports.getAddress_R();        
-      var offset_dst = this.instance.exports.getAddress_Dst();  
+      // setting        
+      var L = new Int32Array(memory.buffer, 0, data.L.length);
+      L.set(data.L);
+      var R = new Int32Array(memory.buffer, size_L, data.R.length);
+      R.set(data.R);        
+      var dst = new Uint8Array(memory.buffer, size_L + size_R, size_D);
+      dst.set(F.Stream.subarray(0, 44));     
+         
+      // WebAssembly run
+      this.instance.exports.write(memory.buffer,size_L, size_R, bits, WaveFomat.nChannels);
       
-      var dst;
-      for(var i=0;i<quotient;i++){
-
-        // L          
-        var src_L = new Int32Array(heap, offset_L, step);          
-        src_L.set(data.L.subarray(i*step,(i*step) + step));
-  
-        // R    
-        if(WaveFomat.nChannels == 2){            
-          var src_R = new Int32Array(heap, offset_R, step);          
-          src_R.set(data.R.subarray(i*step,(i*step) + step));
-        }          
-      
-        // destination 
-        dst = new Uint8Array(heap, offset_dst, step * (bits/8) * WaveFomat.nChannels);    
-              
-        // WebAssembly run
-        this.instance.exports.run(step,bits,WaveFomat.nChannels);    
-
-        F.WriteStream(dst);  
-      }
+      // memcpy
+      F = new TFileStream(); 
+      F.WriteStream(dst);  
         
-      if(mod != 0){
-        // L          
-        var src_L = new Int32Array(heap, offset_L, mod);          
-        src_L.set(data.L.subarray((quotient * step) ,(quotient *step) + mod));
-                  
-        // R     
-        if(WaveFomat.nChannels == 2){                           
-          var src_R = new Int32Array(heap, offset_R, mod);          
-          src_R.set(data.R.subarray((quotient * step) ,(quotient *step) + mod));
-        }
-        
-        // destination 
-        dst = new Uint8Array(heap, offset_dst, mod * (bits/8) * WaveFomat.nChannels);            
-        
-        // WebAssembly run
-        this.instance.exports.run(mod,bits,WaveFomat.nChannels);    
-
-        F.WriteStream(dst);  
-      }
-
       return F;
   },
   
