@@ -1,14 +1,14 @@
 /***********************************************/
 /*                                             */
 /*   WAVE.wasm.js                              */
-/*                                      v1.01  */
+/*                                      v1.02  */
 /*                                             */
 /*   Copyright 2019 Takeshi Okamoto (Japan)    */
 /*                                             */
 /*   Released under the MIT license            */
 /*   https://github.com/TakeshiOkamoto         */
 /*                                             */
-/*                            Date: 2019-03-15 */
+/*                            Date: 2019-03-16 */
 /***********************************************/
 /*
 
@@ -890,26 +890,43 @@ TWaveFormat.prototype = {
       var one_width_samples = Math.floor(data.length / canvas.width);
      
       // Canvasの「横1px」の最大値、最小値
-      var max_list =[],min_list =[]; 
+      var max_list =[], min_list =[]; 
       if(one_width_samples != 0){      
+        
+        // メモリの準備        
+        var memory = mySelf.instance.exports.memory; 
+        
+        var size_S = one_width_samples * 4; // src
+        
+        // 現在のメモリサイズ
+        var now_size = memory.buffer.byteLength;
+        
+        // 必要なメモリサイズ
+        var need_size = size_S;  
+        
+        // malloc
+        if(need_size > now_size){
+          var now_count = Math.floor(now_size / 65536);        
+          mySelf.instance.exports.memory.grow(Math.floor(need_size / 65536) + 1 - now_count);
+        } 
+              
         for(var i=0;i<(data.length / one_width_samples) - 1;i++){
-           var pos = i * one_width_samples;
+          var pos = i * one_width_samples;
            
-           // Canvasの「横1px」のサンプル数の配列の切り出し
-           var lst = data.slice(pos,pos + one_width_samples);      
-          
-           // 最大/最小
-           var max = lst.reduce(function(x, y) {
-                                 if (x > y) return x;
-                                 return y;
-                               });
-           var min = lst.reduce(function(x, y) {
-                                 if (x > y) return y;
-                                 return x;
-                               });
-           // 値の正規化  
-           max_list.push(Normalization(max,half));
-           min_list.push(Normalization(min,half+1));
+          // Canvasの「横1px」のサンプル数の配列の切り出し
+          var lst = data.slice(pos,pos + one_width_samples);      
+
+          // setting        
+          var src = new Int32Array(memory.buffer, 0, lst.length);
+          src.set(lst);
+
+          // WebAssembly run
+          var max = mySelf.instance.exports.myMax(memory.buffer,lst.length);
+          var min = mySelf.instance.exports.myMin(memory.buffer,lst.length);        
+                              
+          // 値の正規化  
+          max_list.push(Normalization(max,half));
+          min_list.push(Normalization(min,half+1));
         }
       }else{
         console.log("Drawing was not possible because the amount of data is small.");
@@ -965,8 +982,8 @@ TWaveFormat.prototype = {
       var file = this.SaveToStream(16, stereo, this.Analyst.WaveFomat.nSamplesPerSec, true);
       mySelf = new TWaveFormat(this.instance, file);         
     }         
-    
-    var data = mySelf.getData();     
+
+    var data = mySelf.getData();        
     if(mySelf.Analyst.WaveFomat.nChannels == 1){      
       draw(canvas1, data.L, "[ Mono ]", mySelf);      
     }else{
