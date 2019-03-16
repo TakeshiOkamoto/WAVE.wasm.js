@@ -235,6 +235,32 @@ void write(void* p, int size_L, int size_R, int bits, int channels) {
 }
 
 WASM_EXPORT
+int myMax(int *p, int size) {
+  int max = p[0];
+  for(int i=0;i<size;i++){
+    if(max < p[i]){
+      max = p[i];  
+    }
+  }
+  return max;
+}
+
+WASM_EXPORT
+int myMin(int *p, int size) {
+  int min = p[0];
+  for(int i=0;i<size;i++){
+    if(min > p[i]){
+      min = p[i];  
+    }
+  }
+  return min;
+}
+
+// ---------------
+//  未使用
+// ---------------
+
+WASM_EXPORT
 void convert(void* p, int size, int bits) {
   int index =0; 
   
