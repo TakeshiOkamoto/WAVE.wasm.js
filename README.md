@@ -33,4 +33,4 @@ data.R = new Int32Array(tmpR);
 ```   
   
 # Licence
-MIT license  
+MIT license   
